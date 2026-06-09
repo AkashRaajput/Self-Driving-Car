@@ -16,6 +16,8 @@
     --primary:#38bdf8;
     --primary-strong:#2563eb;
     --success:#22c55e;
+    --warning:#f59e0b;
+    --danger:#ef4444;
 }
 
 *{
@@ -124,6 +126,36 @@ body{
     margin-bottom:22px;
 }
 
+.upload-alert,
+.upload-note{
+    display:flex;
+    align-items:flex-start;
+    gap:10px;
+    margin-bottom:18px;
+    border-radius:12px;
+    padding:12px 14px;
+    line-height:1.45;
+    font-size:14px;
+}
+
+.upload-alert{
+    color:#fecaca;
+    background:rgba(239,68,68,.12);
+    border:1px solid rgba(239,68,68,.34);
+}
+
+.upload-note{
+    color:#fde68a;
+    background:rgba(245,158,11,.1);
+    border:1px solid rgba(245,158,11,.3);
+}
+
+.upload-alert svg,
+.upload-note svg{
+    flex:0 0 auto;
+    margin-top:1px;
+}
+
 .upload-box{
     position:relative;
     display:grid;
@@ -165,6 +197,14 @@ body{
     font-size:14px;
 }
 
+.file-warning{
+    display:none;
+    margin-top:12px;
+    color:#fecaca;
+    font-size:14px;
+    font-weight:700;
+}
+
 .actions{
     display:flex;
     gap:12px;
@@ -192,6 +232,12 @@ button,
 button{
     background:linear-gradient(135deg,var(--primary),var(--primary-strong));
     box-shadow:0 14px 30px rgba(37,99,235,.26);
+}
+
+button:disabled{
+    cursor:not-allowed;
+    opacity:.55;
+    box-shadow:none;
 }
 
 .ghost-btn{
@@ -332,6 +378,29 @@ svg{
                 Process road video into steering, brake, gear, and speed dashboard signals.
             </p>
 
+            {% if upload_error %}
+            <div class="upload-alert" role="alert">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <path d="M12 8v5"></path>
+                    <path d="M12 16h.01"></path>
+                </svg>
+                <span>{{ upload_error }}</span>
+            </div>
+            {% endif %}
+
+            <div class="upload-note">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <path d="M12 16v-4"></path>
+                    <path d="M12 8h.01"></path>
+                </svg>
+                <span>
+                    Upload limit: videos must be {{ max_upload_mb }} MB or smaller.
+                    For best Render performance, use a 10-{{ max_video_seconds }} second clip.
+                </span>
+            </div>
+
             <form action="/predict_video" method="POST" enctype="multipart/form-data">
                 <label class="upload-box" for="videoInput">
                     <input
@@ -350,12 +419,15 @@ svg{
                             </svg>
                         </span>
                         <strong>Select a road video</strong>
-                        <span id="fileName" class="file-name">MP4, MOV, or AVI</span>
+                        <span id="fileName" class="file-name">
+                            MP4, MOV, or AVI up to {{ max_upload_mb }} MB
+                        </span>
                     </span>
                 </label>
+                <div id="fileWarning" class="file-warning" role="alert"></div>
 
                 <div class="actions">
-                    <button type="submit">
+                    <button id="submitButton" type="submit">
                         <svg viewBox="0 0 24 24" aria-hidden="true">
                             <polygon points="5 3 19 12 5 21 5 3"></polygon>
                         </svg>
@@ -413,7 +485,11 @@ const videoInput = document.getElementById("videoInput");
 const preview = document.getElementById("preview");
 const emptyPreview = document.getElementById("emptyPreview");
 const fileName = document.getElementById("fileName");
+const fileWarning = document.getElementById("fileWarning");
 const previewState = document.getElementById("previewState");
+const submitButton = document.getElementById("submitButton");
+const maxUploadBytes = Number({{ (max_upload_mb * 1024 * 1024) | tojson }});
+const maxUploadMb = Number({{ max_upload_mb | tojson }});
 
 videoInput.addEventListener("change", function(event){
     const file = event.target.files[0];
@@ -422,11 +498,23 @@ videoInput.addEventListener("change", function(event){
         return;
     }
 
+    fileWarning.style.display = "none";
+    fileWarning.textContent = "";
+    submitButton.disabled = false;
+
+    if(file.size > maxUploadBytes){
+        fileWarning.textContent = `Selected file is too large. Maximum upload size is ${maxUploadMb} MB.`;
+        fileWarning.style.display = "block";
+        submitButton.disabled = true;
+        previewState.textContent = "Too large";
+    }else{
+        previewState.textContent = "Ready";
+    }
+
     preview.src = URL.createObjectURL(file);
     preview.style.display = "block";
     emptyPreview.style.display = "none";
     fileName.textContent = file.name;
-    previewState.textContent = "Ready";
 });
 </script>
 </body>
